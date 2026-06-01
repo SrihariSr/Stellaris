@@ -14,7 +14,7 @@ def _phase_fold(time: np.ndarray, period: float, epoch: float) -> np.ndarray:
     return phase
 
 def _bin_flux(
-    phase: np.ndarray, 
+    phase: np.ndarray,
     flux: np.ndarray,
     num_bins: int,
     phase_min: float,

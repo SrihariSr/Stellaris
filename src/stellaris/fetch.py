@@ -5,7 +5,7 @@ import lightkurve as lk
 # Resolve project root from this file's location. This works regardless of
 # where Python is invoked from, which matters because the same module is
 # imported by scripts, notebooks, and tests.
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 KEPLER_DATA_DIR = PROJECT_ROOT / "data" / "raw" / "kepler"
 
 

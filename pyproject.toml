@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stellaris"
+version = "0.1.0"
+description = "ML pipeline for exoplanet candidate identification in Kepler/TESS data"
+requires-python = ">=3.11"
+
+[tool.setuptools.packages.find]
+where = ["src"]
