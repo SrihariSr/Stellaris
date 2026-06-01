@@ -33,5 +33,4 @@ labels = torch.randint(0, 2, (batch_size,), dtype=torch.float32)
 loss = torch.nn.functional.binary_cross_entropy_with_logits(logits, labels)
 loss.backward()
 print(f"\nLoss: {loss.item():.4f}")
-print(f"Gradient sample (first conv layer): "
-      f"{model.global_branch.blocks[0].conv1.weight.grad.abs().mean().item():.6f}")
+print(f"Gradient sample (first conv layer): {model.global_branch.blocks[0].conv1.weight.grad.abs().mean().item():.6f}")
