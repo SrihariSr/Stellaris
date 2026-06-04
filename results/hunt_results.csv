@@ -1,0 +1,4 @@
+tic_id,period_days,epoch_btjd,duration_hours,depth_ppm,bls_snr,cnn_probability,vetting_passed,vetting_reasons,rank_score
+150428135,16.051413,1340.0642,2.0,1289.5,114.25,0.7315,True,,0.7315
+281408474,3.409814,3668.3897,3.0,6198.6,22.62,0.9822,True,,0.9822
+117979897,3.310656,1439.8757,3.0,8125.2,145.05,0.9885,True,,0.9885

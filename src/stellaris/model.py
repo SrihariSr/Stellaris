@@ -73,7 +73,7 @@ class StellarisNetwork(nn.Module):
     """
     The two-view classifier.
 
-    Output is a single logit (pre-sigmoid). Uses BCEWithLogitsLoss in training.
+    Output is a single logit (pre-sigmoid).
     Apply torch.sigmoid() at inference to get a probability in [0, 1].
     """
     def __init__(self):

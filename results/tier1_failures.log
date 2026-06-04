@@ -1,0 +1,145 @@
+2621212	Local window (2.274) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+4070275	Local window (1.267) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+4610830	Local window (2.426) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+8348911	Local window (0.957) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+9006668	Local window (2.188) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+9725627	('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+15445551	Download of mast:TESS/product/tess2021091135823-s0037-0000000015445551-0208-s_lc.fits failed. MAST returns ERROR: HTTPError: 404 Client Error: Not Found for url: https://stpubdata.s3.us-east-1.amazona
+18885659	
+21113347	Download of mast:TESS/product/tess2021091135823-s0037-0000000021113347-0208-s_lc.fits failed. MAST returns ERROR: HTTPError: 404 Client Error: Not Found for url: https://stpubdata.s3.us-east-1.amazona
+24358417	('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+27769688	Local window (1.347) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+28900646	Local window (2.007) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+29781292	Download of mast:TESS/product/tess2021091135823-s0037-0000000029781292-0208-s_lc.fits failed. MAST returns ERROR: HTTPError: 404 Client Error: Not Found for url: https://stpubdata.s3.us-east-1.amazona
+32949762	Local window (2.545) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+37770169	('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+43647325	('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+44898913	Local window (2.477) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+48353358	Local window (0.595) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+48448369	Local window (1.735) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+50171060	('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+53728859	('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+55525572	('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+68952448	('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+75650448	
+86263325	('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+98796344	Local window (0.953) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+118798035	
+119585136	
+120916706	Local window (2.395) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+122375047	Local window (2.169) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+126325985	Timeout limit of 600 exceeded.
+134200185	Local window (0.609) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+137685450	Local window (2.604) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+146520535	Local window (0.785) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+150096001	('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+154293917	
+157236902	Local window (1.731) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+158657354	Local window (1.832) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+158933249	Local window (2.157) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+164173105	Local window (2.277) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+166527623	Local window (0.939) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+198485881	Local window (2.644) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+200322593	Local window (1.834) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+201248411	Local window (0.510) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+201604954	Local window (2.099) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+212253390	('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+254113311	('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+257527578	Local window (2.085) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+258796169	Local window (1.189) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+259233660	Local window (2.143) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+267572272	Local window (0.510) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+268532343	
+271169413	('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+271431851	Local window (2.003) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+275717567	
+277833995	Local window (2.308) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+278892590	Local window (1.729) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+288631580	Local window (1.335) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+289164482	Local window (1.324) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+298074836	Local window (2.009) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+299798795	Local window (1.086) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+307958020	Local window (1.679) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+320411045	Local window (0.560) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+328934463	Local window (2.168) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+332534326	
+351601843	Local window (0.551) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+360156606	Local window (0.805) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+370133522	Local window (0.643) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+377293776	Local window (0.663) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+377622130	
+383390264	Local window (1.143) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+384984325	('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+391949880	Local window (1.892) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+396562848	Local window (1.651) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+404421005	Local window (2.312) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+419411415	('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+420112589	Local window (1.427) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+434226736	Local window (0.707) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+435339847	Local window (2.601) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+436575927	Local window (2.140) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+436873727	Local window (1.308) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+439366538	Local window (2.434) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+443556801	
+459323923	
+459728249	
+459837008	Local window (1.909) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+460205581	Local window (0.889) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.
+464646604	Local window (0.594) exceeds phase range (0.5).
+ This is caused by num_durations being too large or the transit being unusually long.

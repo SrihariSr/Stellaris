@@ -17,7 +17,9 @@ from sklearn.metrics import (
     confusion_matrix,
 )
 
+# pyrefly: ignore [missing-import]
 from stellaris.dataset import StellarisDataset, make_splits, DEFAULT_DATASET_PATH
+# pyrefly: ignore [missing-import]
 from stellaris.model import StellarisNetwork
 
 

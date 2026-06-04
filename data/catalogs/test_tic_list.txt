@@ -1,0 +1,5 @@
+# Known confirmed planets (should score high, pass vetting)
+150428135
+281408474
+# Known false positive (will get flagged by vetting if we're lucky)
+117979897
