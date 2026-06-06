@@ -1,0 +1,3 @@
+tic_id,period_days,depth_ppm,bls_snr,cnn_probability,secondary_depth_ppm,secondary_significance,flags_eb,flags_systematic,systematic_match,alias_found,alias_period,alias_ratio,n_sectors_observed,n_sectors_with_transit,transit_reproduces,overall_pass,plot_path
+155810890,14.389951,20591.7,9.34,0.9912,-465.84687392303704,-0.95334186727741,False,False,,False,18.29524847927858,0.3168931120533022,3,1,False,False,results/validation/validation_155810890.png
+447437532,13.615322,16477.6,5.19,0.8821,1272.0630133351563,1.7483954590616515,False,True,"TESS orbit half (momentum dump) (n=2, target=13.700d)",True,0.7737190412209682,0.6101040367473696,2,2,True,False,results/validation/validation_447437532.png
