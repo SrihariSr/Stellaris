@@ -32,28 +32,28 @@ def extract_features(global_view: np.ndarray, local_view: np.ndarray) -> np.ndar
     These are the standard transit-vetting features used in literature
     (Shallue & Vanderburg's baseline, Yu et al., others).
     """
-    g = global_view  # length 2001
-    l = local_view   # length 201
+    g = global_view # length 2001
+    l = local_view  # length 201
     
     features = [
         # Global view statistics
-        np.min(g),                   # deepest dip
-        np.max(g),                   # highest peak  
-        np.mean(g),                  # mean flux
-        np.std(g),                   # noise level
+        np.min(g),  # deepest dip
+        np.max(g),  # highest peak  
+        np.mean(g), # mean flux
+        np.std(g),  # noise level
         np.median(g),
-        np.percentile(g, 10),        # lower tail
-        np.percentile(g, 90),        # upper tail
+        np.percentile(g, 10), # lower tail
+        np.percentile(g, 90), # upper tail
         
         # Local view (zoomed on transit)
-        np.min(l),                   # transit depth
-        np.max(l),                   # ingress/egress max
+        np.min(l), # transit depth
+        np.max(l), # ingress/egress max
         np.mean(l),
         np.std(l),
         np.median(l),
         
         # Transit shape features
-        np.argmin(l) / len(l),       # transit center position
+        np.argmin(l) / len(l), # transit center position
         np.argmin(g) / len(g),
         
         # Duration proxy: how many local-view bins are below half-depth
