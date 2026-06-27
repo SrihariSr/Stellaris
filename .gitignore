@@ -1,12 +1,26 @@
-cd "/Users/srihari/Desktop/Project Stellaris"
-cat > .gitignore << 'EOF'
-
+# Data (large / derived - regenerated locally)
 data/raw/
 data/processed/
 
-.venv/
+# Python
 __pycache__/
+*.py[cod]
 *.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+build/
+dist/
 
+# Environments
+.venv/
+venv/
+.env
+
+# Editor / tooling
 .antigravity/
+.vscode/
+.idea/
+
+# OS
 .DS_Store
+Thumbs.db
