@@ -193,8 +193,6 @@ python scripts/inspect_candidates.py \
 
 Produces phase-folded plots for visual inspection in `results/candidate_plots/`.
 
----
-
 ## Model architecture
 
 **StellarisNet** is a two-branch 1D convolutional neural network with 9.7M parameters, following Shallue & Vanderburg (2018):
@@ -293,6 +291,12 @@ Stellaris was developed on an Apple MacBook Pro with 36GB RAM with the Apple Sil
 - Unresolved-candidate ranking hunt (5,107 targets): ~7-8 hours.
 
 The code is device-agnostic.
+
+## Scope and prioritisation
+
+> *He who defends everything defends nothing.* — Frederick the Great
+
+On a single-machine budget, ranking already-flagged TESS candidates and hunting new faint-star signals couldn't both be done at depth, so I prioritised the known-target work. The pipeline ranks 4,002 unresolved candidates and puts the strongest through four-check false-positive vetting; 1,564 are strongly endorsed (CNN ≥ 0.9) and 10 of the top 30 survive all four checks. The novel faint-star hunt was kept deliberately bounded (2,000 targets, 474 usable) and returned zero endorsed-and-vetted candidates. Not a failed search, but the informative result: a measurable sensitivity floor for the frozen Kepler model on faint stars, which is itself the case for the prioritisation.
 
 ## License
 
