@@ -12,7 +12,7 @@ The pipeline was trained on 6,726 Kepler Objects of Interest, then deployed unch
 
 - **1,102 confirmed TESS planets** — for validation. Recovered 62% at CNN ≥ 0.5 + vetting passed.
 - **4,002 unresolved TESS candidates** that the astronomical community is actively investigating — for ranking. Strongly endorsed 1,564 of them.
-- **474 faint stars (Tmag 13-15)** not previously catalogued — for exploration. 0 candidates survived rigorous validation, characterising the model's sensitivity floor in the faint regime.
+- **474 faint stars (Tmag 13-15)** not previously catalogued — for exploration. A single candidate cleared the CNN threshold and both vetting rules (TIC 155810890), and it has not yet been through the four-check screening. Its BLS period sits 5.04% from the 13.7-day TESS orbital systematic, just outside the 5% rejection tolerance, so it is most likely instrumental. The thin yield characterises the model's sensitivity floor in the faint regime.
 
 ---
 
@@ -247,7 +247,7 @@ This project is genuinely useful but has clear limits. Documented here for trans
 
 - **Eclipsing binary contamination.** The model was trained on Kepler data and learned transit shapes well, but cannot distinguish planets from eclipsing binaries on shape alone. TOI-2533, a confirmed EB, received CNN probability 0.988 in testing.
 
-- **Sensitivity floor on faint stars.** The novel hunt on Tmag 13-15 targets produced zero validated candidates from 474 successful targets. The Kepler-trained model has reduced effectiveness on noisy faint-star TESS data; fine-tuning on TESS would likely close this gap.
+- **Sensitivity floor on faint stars.** The novel hunt on Tmag 13-15 targets produced one endorsed-and-vetted candidate from 474 successful targets, and that candidate has not been screened. Of the top eight faint-star signals by CNN score, six have BLS periods within 10% of the 13.7-day TESS orbital period, and five would be rejected outright by the systematic-period check. Across all 474 targets, 41.6% have a BLS period within 10% of 13.7 days. BLS is locking onto the TESS orbital systematic on faint stars, and the CNN cannot reject those signals because view normalisation makes it blind to depth. Fine-tuning on TESS would likely help.
 
 - **Conservative validation checks.** The "TESS systematic period" check flags any candidate within 5% of known instrumental periods, which can reject real planets whose orbits happen to fall there. Similarly, single-sector candidates fail the sector-consistency check by default. These are conservative choices favouring false-negative reduction over false-positive avoidance.
 
@@ -296,7 +296,7 @@ The code is device-agnostic.
 
 > *He who defends everything defends nothing.* — Frederick the Great
 
-On a single-machine budget, ranking already-flagged TESS candidates and hunting new faint-star signals couldn't both be done at depth, so I prioritised the known-target work. The pipeline ranks 4,002 unresolved candidates and puts the strongest through four-check false-positive vetting; 1,564 are strongly endorsed (CNN ≥ 0.9) and 10 of the top 30 survive all four checks. The novel faint-star hunt was kept deliberately bounded (2,000 targets, 474 usable) and returned zero endorsed-and-vetted candidates. Not a failed search, but the informative result: a measurable sensitivity floor for the frozen Kepler model on faint stars, which is itself the case for the prioritisation.
+On a single-machine budget, ranking already-flagged TESS candidates and hunting new faint-star signals couldn't both be done at depth, so I prioritised the known-target work. The pipeline ranks 4,002 unresolved candidates and puts the strongest through four-check false-positive vetting; 1,564 are strongly endorsed (CNN ≥ 0.9) and 10 of the top 30 survive all four checks. The novel faint-star hunt was kept deliberately bounded (2,000 targets, 474 usable) and surfaced a single unscreened candidate, against 1,564 from the known-target stream. That thin yield is the informative result, and its cause is specific: BLS locks onto the 13.7-day TESS orbital systematic on faint stars, and the CNN cannot reject it. This is the case for the prioritisation.
 
 ## License
 
