@@ -1,6 +1,4 @@
 """This file cleans the Kepler light curves data."""
-from PIL import TiffImagePlugin
-from matplotlib.cbook import flatten
 import numpy as np
 import lightkurve as lk
 
