@@ -1,0 +1,2 @@
+tic_id,period_days,depth_ppm,bls_snr,cnn_probability,secondary_depth_ppm,secondary_significance,flags_eb,flags_systematic,systematic_match,alias_found,alias_period,alias_ratio,n_sectors_observed,n_sectors_with_transit,transit_reproduces,overall_pass,plot_path
+155810890,14.389951,20591.7,9.34,0.9912,-465.84687392303704,-0.95334186727741,False,False,,False,18.29524847927858,0.3168931120533022,3,1,False,False,results/validation_novel/validation_155810890.png
