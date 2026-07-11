@@ -75,17 +75,32 @@ class StellarisNetwork(nn.Module):
 
     Output is a single logit (pre-sigmoid).
     Apply torch.sigmoid() at inference to get a probability in [0, 1].
+
+    The two branch flags exist for the ablation study. With both set to True
+    (the default) this is structurally identical to the original network, so
+    existing checkpoints load unchanged. Setting one to False removes that
+    branch entirely: the head's input width shrinks to match, because
+    flatten_dim is measured by a dummy forward pass rather than hard-coded.
     """
-    def __init__(self):
+    def __init__(self, use_global: bool = True, use_local: bool = True):
         super().__init__()
-        self.global_branch = GlobalBranch()
-        self.local_branch = LocalBranch()
+        if not (use_global or use_local):
+            raise ValueError("At least one branch must be enabled.")
+
+        self.use_global = use_global
+        self.use_local = use_local
+
+        self.global_branch = GlobalBranch() if use_global else None
+        self.local_branch = LocalBranch() if use_local else None
 
     # Determine flatten sizes by running a dummy pass at init time.
         with torch.no_grad():
-            g_out = self.global_branch(torch.zeros(1, 1, 2001)) # global
-            l_out = self.local_branch(torch.zeros(1, 1, 201)) # local
-            flatten_dim = g_out.shape[1] + l_out.shape[1]
+            dims = []
+            if use_global:
+                dims.append(self.global_branch(torch.zeros(1, 1, 2001)).shape[1])
+            if use_local:
+                dims.append(self.local_branch(torch.zeros(1, 1, 201)).shape[1])
+            flatten_dim = sum(dims)
 
         self.head = nn.Sequential(
             nn.Linear(flatten_dim, 512),
@@ -101,8 +116,14 @@ class StellarisNetwork(nn.Module):
         )
     
     def forward(self, global_view: torch.Tensor, local_view: torch.Tensor) -> torch.Tensor:
-        g = self.global_branch(global_view)
-        l = self.local_branch(local_view)
-        x = torch.cat([g, l], dim=1)
+        # Collect whichever branches are switched on, then concatenate.
+        # Both on -> identical to the original network.
+        # One off -> the head simply sees a narrower feature vector.
+        feats = []
+        if self.use_global:
+            feats.append(self.global_branch(global_view))
+        if self.use_local:
+            feats.append(self.local_branch(local_view))
+        x = torch.cat(feats, dim=1) if len(feats) > 1 else feats[0]
         return self.head(x).squeeze(-1)
 
