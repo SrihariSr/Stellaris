@@ -1,8 +1,5 @@
-# Data (large / derived - regenerated locally)
 data/raw/
 data/processed/
-
-# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -10,17 +7,12 @@ __pycache__/
 .ipynb_checkpoints/
 build/
 dist/
-
-# Environments
 .venv/
 venv/
 .env
-
-# Editor / tooling
 .antigravity/
 .vscode/
 .idea/
-
-# OS
 .DS_Store
 Thumbs.db
+NeurIPS workshop paper.tex

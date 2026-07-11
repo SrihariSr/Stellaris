@@ -97,7 +97,7 @@ class StellarisNetwork(nn.Module):
             nn.Linear(512, 512),
             nn.ReLU(),
             nn.Dropout(0.5),
-            nn.Linear(512, 1),
+            nn.Linear(512, 1)
         )
     
     def forward(self, global_view: torch.Tensor, local_view: torch.Tensor) -> torch.Tensor:

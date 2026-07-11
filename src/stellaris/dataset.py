@@ -1,5 +1,3 @@
-from astropy.coordinates.builtin_frames import galactic_transforms
-from PIL.ImagePalette import random
 from pathlib import Path
 import h5py
 import numpy as np
