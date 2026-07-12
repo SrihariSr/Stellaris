@@ -38,7 +38,6 @@ DEVICE = (
 RESULTS = Path("results")
 RESULTS.mkdir(exist_ok=True)
 
-
 def evaluate(model: nn.Module, loader: DataLoader) -> dict:
     """
     Score a model on a dataloader.
@@ -79,7 +78,6 @@ def evaluate(model: nn.Module, loader: DataLoader) -> dict:
         out[f'recall_at_{int(p * 100)}'] = float(recall[mask].max()) if mask.any() else 0.0
 
     return out
-
 
 def train_one(use_global: bool, use_local: bool, seed: int, splits: dict) -> dict:
     """
@@ -154,7 +152,6 @@ def train_one(use_global: bool, use_local: bool, seed: int, splits: dict) -> dic
         **{f'test_{k}': v for k, v in test.items()},
     }
 
-
 def main() -> None:
     print(f"Device: {DEVICE}\n")
 
@@ -205,7 +202,6 @@ def main() -> None:
     print("  AFTER dump_split.py, or the comparison is on the wrong test set.")
     print(f"\nTotal time: {(time.time() - t0) / 60:.1f} min")
     print(f"Written: {RESULTS / 'ablation_results.json'}")
-
 
 if __name__ == '__main__':
     main()
