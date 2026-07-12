@@ -1,80 +1,3 @@
-"""
-The CNN-contribution ablation.
-
-THE QUESTION
-------------
-Your pipeline is BLS, then a 9.7M parameter CNN, then two vetting rules. A
-reviewer will ask the obvious thing: does the CNN earn its place? Right now the
-paper asserts that it does but never isolates it. This script answers it.
-
-WHY THIS RUNS ON KEPLER AND NOT ON TESS
----------------------------------------
-You need examples that are NOT planets. All three TESS regimes lack labelled
-negatives:
-  - Tier 1 is entirely confirmed planets.
-  - Tier 3 candidates are unresolved by definition (that is the point of them).
-  - The novel hunt has no ground truth at all.
-
-On a set of known planets, adding any filter can only ever *cost* you recall.
-That is exactly what you see: the vetting rules alone pass 78.4% of Tier 1, and
-adding the CNN gate drops that to 62.2%. Read naively, the CNN looks harmful.
-
-It is not. The CNN's job is suppressing FALSE POSITIVES, and you can only see
-that on data containing false positives. The Kepler test set has 412 positives
-and 608 labelled negatives. It is the only place in this project where the
-question is answerable.
-
-WHAT THE ARMS TEST
-------------------
-  both        : the full network. Your published 0.9451.
-  global-only : delete the local branch. Does the 201-bin transit close-up
-                actually contribute, or is the full phase curve enough?
-  local-only  : delete the global branch. This one is interesting because it is
-                1.32M parameters against 9.71M, roughly 7x smaller. If it scores
-                close to the full model, the global branch is largely dead
-                weight, and that is a finding worth reporting.
-  (XGBoost)   : run separately, see train_xgboost_baseline.py. It sees 19
-                hand-engineered statistics of the SAME two views. So CNN vs
-                XGBoost is a clean "learned representation vs hand-crafted
-                summary of identical input" comparison.
-
-A NOTE ON WHAT THE NETWORK CAN AND CANNOT SEE
----------------------------------------------
-Look at _normalise() in views.py: each view is shifted to zero median, then
-divided by the absolute value of its minimum. So the deepest bin of every view
-is exactly -1, always. ABSOLUTE DEPTH IS DESTROYED before the network sees the
-data. The CNN is physically incapable of seeing how deep a transit is; it
-classifies purely on shape. That is why it scores eclipsing binaries at 0.988,
-and why the depth-cap vetting rule is doing genuinely complementary work rather
-than being redundant with the network.
-
-WHY THE SPLIT IS FIXED AND ONLY THE SEED VARIES
------------------------------------------------
-Two different things could be randomised: the data split, and the weight
-initialisation. We fix the split (seed 42, the CNN's own split, via
-make_splits()) and vary only the training seed.
-
-Reason: the test set then stays constant across all 9 runs, so every number here
-is directly comparable to your published 0.9451 and to each other. If we
-reshuffled the split each time, the test set would change and nothing would be
-comparable to anything.
-
-Note also that train.py sets NO torch seed at all, which means the run that
-produced stellaris_best.pt cannot be reproduced exactly. This script fixes that
-by seeding explicitly.
-
-OUTPUT
-------
-results/ablation_results.json  : every run, every metric
-Printed summary table          : mean +/- std across seeds, ready for the paper
-
-USAGE
------
-    PYTHONPATH=src python scripts/run_ablation.py
-
-Runtime: 9 runs x 40 epochs. Budget a few hours on the M4 Max. The local-only
-runs are much faster than the others because the model is 7x smaller.
-"""
 from pathlib import Path
 import json
 import time
@@ -93,18 +16,12 @@ from tqdm import tqdm
 from stellaris.dataset import StellarisDataset, make_splits, DEFAULT_DATASET_PATH
 from stellaris.model import StellarisNetwork
 
-
-# ---------------------------------------------------------------------------
-# These MUST match train.py exactly. If they drift, the ablation is measuring
-# hyperparameter differences instead of architecture differences, which would
-# make the whole experiment meaningless.
-# ---------------------------------------------------------------------------
 BATCH_SIZE = 64
 NUM_EPOCHS = 40
 LEARNING_RATE = 1e-4
 WEIGHT_DECAY = 1e-5
 
-SEEDS = [0, 1, 2]
+SEEDS = list(range(10))
 VARIANTS = [
     # (name, use_global, use_local)
     ("both",        True,  True),
@@ -265,7 +182,7 @@ def main() -> None:
     with open(RESULTS / "ablation_results.json", "w") as f:
         json.dump(records, f, indent=2)
 
-    # ---------------- summary table, paper-ready ----------------
+    # summary table
     print("=" * 78)
     print("ABLATION: Kepler test set (412 positives, 608 negatives), mean +/- std over seeds")
     print("=" * 78)
@@ -279,9 +196,9 @@ def main() -> None:
         r95 = np.array([r['test_recall_at_95'] for r in rows])
         params = rows[0]['n_params']
         print(f"{name:<13} {params:>11,}  "
-              f"{prs.mean():.4f} +/- {prs.std():.4f}  "
-              f"{rocs.mean():.4f} +/- {rocs.std():.4f}  "
-              f"{r95.mean():.3f} +/- {r95.std():.3f}")
+              f"{prs.mean():.4f} +/- {prs.std(ddof=1):.4f}  "
+              f"{rocs.mean():.4f} +/- {rocs.std(ddof=1):.4f}  "
+              f"{r95.mean():.3f} +/- {r95.std(ddof=1):.3f}")
 
     print("-" * 78)
     print("XGBoost (19 hand-engineered view features): run train_xgboost_baseline.py")
