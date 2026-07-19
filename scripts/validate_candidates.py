@@ -36,7 +36,7 @@ VALIDATION_DIR.mkdir(parents=True, exist_ok=True)
 
 # Known TESS systematic periods to flag (days)
 TESS_SYSTEMATIC_PERIODS = {
-    "TESS orbit half (momentum dump)": 6.85,
+    "TESS orbit half (momentum dump)": 2.85,
     "TESS orbit": 13.7,
     "Daily aliasing (1d)": 1.0,
     "Two-day aliasing": 2.0,
