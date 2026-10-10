@@ -10,6 +10,8 @@ Strategy:
 
 Output: data/catalogs/novel_targets.txt
 """
+from __future__ import annotations
+
 from pathlib import Path
 import argparse
 import numpy as np
