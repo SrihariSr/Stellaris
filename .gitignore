@@ -16,3 +16,5 @@ venv/
 .DS_Store
 Thumbs.db
 NeurIPS workshop paper.tex
+checkpoints/camera_ready/
+.cr_scratch/

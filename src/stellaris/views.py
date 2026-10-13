@@ -54,18 +54,32 @@ def _normalise(view: np.ndarray) -> np.ndarray:
         return view
     return view / depth
 
+def _normalise_with_scale(view: np.ndarray) -> tuple[np.ndarray, float]:
+    """
+    As _normalise, also returning the divisor (0.0 for a flat view).
+    """
+    view = view - np.median(view)
+    depth = np.abs(view.min())
+    if depth < 1e-10:
+        return view, 0.0
+    return view / depth, float(depth)
+
 def make_global_view(
     time: np.ndarray,
     flux: np.ndarray,
     period: float,
     epoch: float,
-    num_bins: int = GLOBAL_VIEW_BINS
-    ) -> np.ndarray:
+    num_bins: int = GLOBAL_VIEW_BINS,
+    return_scale: bool = False
+    ) -> np.ndarray | tuple[np.ndarray, float]:
     """
     Generate the global view: full phase-folded light curve, binned.
+    With return_scale, return (view, scale) where scale is the normalisation divisor.
     """
     phase = _phase_fold(time, period, epoch)
     binned = _bin_flux(phase, flux, num_bins, phase_min=-0.5, phase_max=0.5)
+    if return_scale:
+        return _normalise_with_scale(binned)
     return _normalise(binned)
 
 def make_local_view(
@@ -75,10 +89,12 @@ def make_local_view(
     epoch: float,
     duration: float,
     num_bins: int=LOCAL_VIEW_BINS,
-    num_durations: int=LOCAL_VIEW_NUM_DURATIONS
-    ) -> np.ndarray:
+    num_durations: int=LOCAL_VIEW_NUM_DURATIONS,
+    return_scale: bool = False
+    ) -> np.ndarray | tuple[np.ndarray, float]:
     """
     Generate the local view: zoomed window around the transit, binned.
+    With return_scale, return (view, scale) where scale is the normalisation divisor.
     """
     phase = _phase_fold(time, period, epoch)
 
@@ -92,4 +108,6 @@ def make_local_view(
     
     binned = _bin_flux(phase[mask], flux[mask], num_bins, phase_min=-half_window, phase_max=half_window)
 
+    if return_scale:
+        return _normalise_with_scale(binned)
     return _normalise(binned)

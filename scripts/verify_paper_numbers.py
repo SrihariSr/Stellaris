@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import collections
 import json
+import re
 import sys
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -194,21 +196,30 @@ def main() -> None:
 
     # A target is only "unrecoverable by construction" if EVERY catalogued planet on
     # it sits outside the search box. Multi-planet systems make this non-trivial.
-    period_only = duration_only = both_out = 0
+    # A catalogue period of 0 marks a single transit, which no periodic search can recover.
+    single_only = period_out = both_out = duration_out = unrecoverable = 0
     for tic in r1[~r1.bls_correct].tic_id:
         planets = confirmed[confirmed["TIC ID"] == tic]
-        all_long_period = bool((planets["Period (days)"] > 20).all())
-        all_long_duration = bool((planets["Duration (hours)"] > 8).all())
-        if all_long_period and all_long_duration:
+        single = planets["Period (days)"] <= 0
+        # A single-transit companion counts as beyond the 20-day ceiling.
+        beyond_period = single | (planets["Period (days)"] > 20)
+        beyond_duration = planets["Duration (hours)"] > 8
+        if planets.empty or not (beyond_period | beyond_duration).all():
+            continue
+        unrecoverable += 1
+        if single.all():
+            single_only += 1
+        elif beyond_period.all() and beyond_duration.all():
             both_out += 1
-        elif all_long_period:
-            period_only += 1
-        elif all_long_duration:
-            duration_only += 1
-    check("beyond the 20-day ceiling only", period_only, 53)
-    check("beyond the 8-hour grid only", duration_only, 3)
-    check("beyond both", both_out, 10)
-    check("unrecoverable by construction", period_only + duration_only + both_out, 66)
+        elif beyond_period.all():
+            period_out += 1
+        elif beyond_duration.all():
+            duration_out += 1
+    check("single-transit planets only", single_only, 6)
+    check("beyond the 20-day ceiling", period_out, 54)
+    check("beyond 20 d and the 8-hour grid", both_out, 10)
+    check("beyond the 8-hour grid only", duration_out, 0)
+    check("unrecoverable by construction", unrecoverable, 70)
 
     # R2
     print("\n---- R2: UNRESOLVED TOIs ----")
@@ -308,7 +319,7 @@ def main() -> None:
     # Reweight R1 to R3's signal-to-noise profile: how much of the vetting gap is
     # composition rather than population? The answer moves with the binning, which
     # is exactly why the paper quotes a range and calls the estimate thin.
-    print("\n  Reweighting R1 to R3's S/N distribution (paper quotes 54-66%):")
+    print("\n  Reweighting R1 to R3's S/N distribution (bin widths 1, 2, 3 give 60%, 54%, 53%):")
     for width in (1, 2, 3):
         edges = np.arange(0, r1.bls_snr.max() + width, width)
         r1_bin = pd.cut(r1.bls_snr, edges)
@@ -318,6 +329,100 @@ def main() -> None:
         table = pd.DataFrame({"rate": pass_rate, "weight": weights}).dropna()
         reweighted = (table.rate * table.weight).sum() / table.weight.sum()
         print(f"    width-{width} bins: {reweighted * 100:.0f}%")
+
+    # Camera-ready additions
+    print("\n---- CAMERA-READY ----")
+    ablation = pd.DataFrame(json.load(open("results/ablation_results.json")))
+    for variant, want in (("global-only", 0.551), ("both", 0.959), ("local-only", 0.958)):
+        check(f"{variant} mean test ROC-AUC",
+              round(float(ablation[ablation.variant == variant].test_roc_auc.mean()), 3), want)
+    for variant, (want_mean, want_sd) in (("both", (0.674, 0.047)), ("local-only", (0.685, 0.026))):
+        r95 = ablation[ablation.variant == variant].test_recall_at_95
+        check(f"{variant} R@95%P mean", round(float(r95.mean()), 3), want_mean)
+        check(f"{variant} R@95%P s.d.", round(float(r95.std(ddof=1)), 3), want_sd)
+    global_only = ablation[ablation.variant == "global-only"].sort_values("seed")
+    check("global-only best epochs, seeds 0-9", [int(e) for e in global_only.best_epoch], [2, 1, 2, 8, 4, 3, 4, 5, 3, 1])
+    # A collapsed seed emits one constant score, which puts its test ROC-AUC at exactly 0.5.
+    check("global-only seeds with test ROC-AUC exactly 0.5",
+          [int(s) for s in global_only[global_only.test_roc_auc == 0.5].seed], [3, 4])
+
+    # Exact McNemar test on the discordant pairs: lost only to the classifier vs only to vetting.
+    clf_only = int((cnn_failed & ~vet_failed).sum())
+    vet_only = int((vet_failed & ~cnn_failed).sum())
+    check("McNemar exact p, classifier-only vs vetting-only (179 vs 131)",
+          round(stats.binomtest(min(clf_only, vet_only), clf_only + vet_only, 0.5).pvalue, 3), 0.007)
+    clean_clf_only = int(((clean.cnn_probability < 0.5) & clean.vetted).sum())
+    clean_vet_only = int(((clean.cnn_probability >= 0.5) & ~clean.vetted).sum())
+    check("  given a BLS period match: classifier-only losses", clean_clf_only, 143)
+    check("  given a BLS period match: vetting-only losses", clean_vet_only, 75)
+    clean_p = stats.binomtest(min(clean_clf_only, clean_vet_only), clean_clf_only + clean_vet_only, 0.5).pvalue
+    check("  given a BLS period match: McNemar exact p < 1e-4", bool(clean_p < 1e-4), True)
+
+    # A log-uniform period prior over the 0.5-20 d search box puts this much mass within 10% of 13.7 d.
+    band_share = np.log(1.1 / 0.9) / np.log(20 / 0.5)
+    check("log-uniform share of 0.5-20 d within 10% of 13.7 d, %", round(band_share * 100, 1), 5.4)
+    check("excess of R3 periods in that band", round(float(near_orbit.mean()) / band_share, 1), 7.6)
+    in_band = r3[near_orbit]
+    check("median depth of near-13.7 d R3 detections, ppm", int(round(in_band.depth_ppm.median())), 13791)
+    below_cap = int((in_band.depth_ppm < 30_000).sum())
+    check("  of them below the 3% depth cap", below_cap, 133)
+    check("  near-13.7 d R3 detections", len(in_band), 197)
+    check("  fraction below the 3% depth cap", round(below_cap / len(in_band), 3), 0.675)
+    check("R3 scoring >= 0.9 that fail the depth cap",
+          int(high.vetting_reasons.fillna("").str.contains("cap").sum()), 3)
+
+    # tier1_failures.log records span several lines: a record starts with "<tic>\t".
+    records: list[str] = []
+    for line in Path("results/tier1_failures.log").read_text().splitlines():
+        if re.match(r"^\d+\t", line):
+            records.append(line)
+        elif records:
+            records[-1] += "\n" + line
+    r1_view_losses = sum(1 for r in records if "exceeds phase range" in r or "Local window" in r)
+    check("R1 lost at view construction", r1_view_losses, 57)
+    check("R1 lost elsewhere", len(records) - r1_view_losses, 31)
+    check("R1 processed plus view-construction losses", len(r1) + r1_view_losses, 1159)
+    check("R1 recovered over processed plus view losses %",
+          round(int(endorsed.sum()) / (len(r1) + r1_view_losses) * 100, 1), 59.1)
+
+    failed_screen = ~screened.overall_pass.astype(bool)
+    systematic = screened.flags_systematic.astype(bool)
+    alias = screened.alias_found.astype(bool)
+    eclipse = screened.flags_eb.astype(bool)
+    check("R2 screening failures", int(failed_screen.sum()), 20)
+    check("  flagged systematic", int(systematic.sum()), 12)
+    check("  failing sector reproduction", int(no_reproduce.sum()), 11)
+    check("  failing both", int((systematic & no_reproduce).sum()), 4)
+    check("  failing only the alias check", int((alias & ~systematic & ~no_reproduce & ~eclipse).sum()), 1)
+    check("  secondary-eclipse flags", int(eclipse.sum()), 2)
+    check("  secondary-eclipse flags inside the systematic set", bool((systematic | ~eclipse).all()), True)
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        from validate_candidates import TESS_SYSTEMATIC_PERIODS, check_systematic_period
+    check("screening period set holds the 6.85 d half orbit", TESS_SYSTEMATIC_PERIODS.get("TESS orbit half"), 6.85)
+    recomputed = screened.period_days.map(lambda p: check_systematic_period(p)["flags_systematic"]).astype(bool)
+    check("systematic flags recomputed from that set", int((recomputed == systematic).sum()), len(screened))
+
+    rejected_high = r2[(r2.cnn_probability >= 0.9) & ~r2.vetted].vetting_reasons.fillna("")
+    oe_high, cap_high = rejected_high.str.contains("odd/even"), rejected_high.str.contains("cap")
+    check("R2 >= 0.9 rejected: odd-even only", int((oe_high & ~cap_high).sum()), 316)
+    check("R2 >= 0.9 rejected: depth cap only", int((cap_high & ~oe_high).sum()), 41)
+    check("R2 >= 0.9 rejected: both", int((oe_high & cap_high).sum()), 4)
+
+    for width, want in ((1, 60), (2, 54), (3, 53)):
+        edges = np.arange(0, r1.bls_snr.max() + width, width)
+        weights = pd.cut(r3.bls_snr, edges).value_counts(normalize=True)
+        pass_rate = r1.groupby(pd.cut(r1.bls_snr, edges), observed=True).vetted.mean()
+        table = pd.DataFrame({"rate": pass_rate, "weight": weights}).dropna()
+        reweighted = (table.rate * table.weight).sum() / table.weight.sum()
+        check(f"R1 vetting pass reweighted to R3 S/N, width-{width} bins %", int(round(reweighted * 100)), want)
+
+    check("classifier FN rate at threshold 0.3 %", round(float((r1.cnn_probability < 0.3).mean()) * 100, 1), 20.4)
+    vetting_fr = float(vet_failed.mean())
+    crossover = next(float(t) for t in np.round(np.linspace(0, 1, 1001), 3)
+                     if float((r1.cnn_probability < t).mean()) >= vetting_fr)
+    check("threshold where classifier FN first reaches vetting FR", crossover, 0.345, tol=1e-9)
 
     print("\n" + "-" * 60)
     print(f"{_passed} passed, {len(_failed)} failed")

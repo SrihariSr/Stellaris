@@ -272,6 +272,132 @@ artefacts, and prints PASS or FAIL for each. Exits non-zero on any failure.
 
 ---
 
+## Camera-ready experiments
+
+These scripts extend the frozen-model analysis without touching the original pipeline. Every
+command below runs from the repository root, takes `--limit` for a quick trial, and resumes where
+it stopped if interrupted. New TESS code reads only the local FITS under `data/raw/tess/`; nothing
+re-downloads from MAST except the R0 hunt and the TIC query (steps 7 and 8).
+
+`validate_candidates.py` now screens the 6.85 d TESS half-orbit period in place of the old 2.85 d
+entry; this reproduces the committed `flags_systematic` columns (12 of 30 and 0 of 1).
+
+**1. Local TESS cache** (preprocessed flux plus sector labels, one `.npz` per TIC; about 15 min
+with 8 workers once the FITS are on disk)
+
+```bash
+PYTHONPATH=src python scripts/build_tess_cache.py --targets r1 r2 r3 --cache-dir data/processed/tess_cache
+for r in r1 r2 r3; do
+  PYTHONPATH=src python scripts/rerun_bls.py --regime $r --cache-dir data/processed/tess_cache \
+    --out results/camera_ready/bls_full/${r}_bls_full.csv           # about 25 min per 1,000 targets
+done
+```
+
+The hunt CSVs round the BLS period to 6 decimal places. Over a multi-year baseline that shifts the
+local-view bins enough to move single scores by up to 0.25 (median 0.003 on R1, 0.03 on R3).
+`rerun_bls.py` restores the full-precision ephemeris and reproduces every committed hunt row after
+rounding; use `--ephemeris bls_full` when rescoring.
+
+**2. Kepler training set v2** (the v1 views plus normalisation scales, catalogue scalars and FP
+flags; overnight, because most of `data/raw/kepler/` is a OneDrive placeholder that has to be
+downloaded on first read)
+
+```bash
+PYTHONPATH=src python scripts/build_kepler_trainset_v2.py --out data/processed/kepler_trainset_v2.h5
+PYTHONPATH=src python scripts/compare_trainsets.py --v2 data/processed/kepler_trainset_v2.h5 \
+  --out results/camera_ready/trainset_v2_comparison.json
+```
+
+By default (`--match-v1`) the build holds exactly v1's rows in v1's order, so the scalar variants
+share v1's splits. If any v1 row fails, nothing is written and the rows are listed in
+`kepler_trainset_v2.h5.missing_rows.csv` (`--allow-missing` writes the subset with a warning). CSV
+rows that v1 never had are never written; they are listed in `kepler_trainset_v2.h5.extra_rows.csv`.
+`compare_trainsets.py` prints IDENTICAL only for a full row-for-row match.
+
+**3. Training variants** (writes `results/camera_ready/training/` and
+`checkpoints/camera_ready/<group>/`; times are for MPS on an M4 Max, scaled from `run_ablation.py`;
+on CPU a single 40-epoch run of the full model takes about 50 min)
+
+```bash
+PYTHONPATH=src python scripts/train_variants.py --group ablation        # 30 runs, about 30 min
+PYTHONPATH=src python scripts/train_variants.py --group ablation-long   # 30 runs x 100 epochs, about 75 min
+PYTHONPATH=src python scripts/train_variants.py --group global-tuning   # 36 runs x 100 epochs, about 90 min
+PYTHONPATH=src python scripts/train_variants.py --group scalars         # 40 runs on v2, about 40 min
+```
+
+The `ablation` group reproduces `run_ablation.py` exactly (same RNG order and selection rule) and
+also keeps per-epoch history and checkpoints.
+
+**4. Rescoring** (one long-format CSV per regime and ephemeris in `results/camera_ready/rescore/`;
+10 to 15 min per 1,000 targets with every checkpoint on CPU)
+
+```bash
+for r in r1 r2 r3; do
+  PYTHONPATH=src python scripts/rescore_tess.py --regime $r --ephemeris bls_full --checkpoints checkpoints/stellaris_best.pt 'checkpoints/camera_ready/*/*.pt' \
+    --cache-dir data/processed/tess_cache --out results/camera_ready/rescore/${r}_bls_full.csv
+done
+for r in r1 r2; do
+  PYTHONPATH=src python scripts/rescore_tess.py --regime $r --ephemeris catalogue --checkpoints checkpoints/stellaris_best.pt 'checkpoints/camera_ready/*/*.pt' \
+    --cache-dir data/processed/tess_cache --out results/camera_ready/rescore/${r}_catalogue.csv
+done
+```
+
+The quoted glob is expanded by the script, so the same line works in bash and zsh.
+`--ephemeris bls` reads the rounded hunt CSV ephemeris instead; it is kept for comparison.
+
+**5. Depth probe** (flux-scale invariance and a fixed-noise depth sweep; 30 to 40 min with every checkpoint)
+
+```bash
+PYTHONPATH=src python scripts/depth_probe.py --checkpoints checkpoints/stellaris_best.pt 'checkpoints/camera_ready/*/*.pt' --cache-dir data/processed/tess_cache \
+  --n-targets 100 --out-dir results/camera_ready/depth_probe
+```
+
+**6. Injection-recovery** on all 2,000 R3 targets (overnight with 8 workers)
+
+```bash
+caffeinate -i env PYTHONPATH=src python scripts/injection_recovery.py --injections-per-target 2 \
+  --checkpoints checkpoints/stellaris_best.pt 'checkpoints/camera_ready/*/*.pt' --out results/camera_ready/injection/r3_injections.csv
+```
+
+**7. R0: false-positive hosts** (list in seconds; the hunt downloads from MAST and takes hours)
+
+```bash
+PYTHONPATH=src python scripts/build_false_positive_list.py --out data/catalogs/tess_false_positive_hosts.txt
+caffeinate -i env PYTHONPATH=src python scripts/hunting.py --tic-list data/catalogs/tess_false_positive_hosts.txt \
+  --output results/r0_results.csv --failures results/r0_failures.log
+PYTHONPATH=src python scripts/build_tess_cache.py --targets r0 --cache-dir data/processed/tess_cache
+PYTHONPATH=src python scripts/rerun_bls.py --regime r0 --out results/camera_ready/bls_full/r0_bls_full.csv
+```
+
+Then rescore `r0` as in step 4.
+
+**8. TIC stellar parameters** (network; a few minutes). R3 has no TOI stellar values, so run this
+before rescoring R3 if the scalar variants should see real radii; `rescore_tess.py` picks up
+`data/catalogs/tic_stellar.csv` for R3 automatically.
+
+```bash
+PYTHONPATH=src python scripts/fetch_tic_stellar.py --targets r3 --out data/catalogs/tic_stellar.csv
+```
+
+**9. Analysis** (tables to `results/camera_ready/analysis/`, figures to `figures/camera_ready/`)
+
+```bash
+PYTHONPATH=src python scripts/analyse_camera_ready.py stages
+PYTHONPATH=src python scripts/analyse_camera_ready.py training
+PYTHONPATH=src python scripts/analyse_camera_ready.py rescore --ephemeris-tag bls_full
+PYTHONPATH=src python scripts/analyse_camera_ready.py injection
+PYTHONPATH=src python scripts/analyse_camera_ready.py probe
+PYTHONPATH=src python scripts/analyse_camera_ready.py negatives
+```
+
+Runtime notes: the v2 build and the injection run are overnight jobs. The project lives in a
+OneDrive folder; marking `data/raw/` as "Always keep on this device" avoids on-demand downloads
+mid-run, and the TESS cache (several GB in `data/processed/tess_cache/`) will sync unless that
+folder is excluded. The equivalence tests in `tests/camera_ready/` run with
+`PYTHONPATH=src python tests/camera_ready/<test>.py`.
+
+---
+
 ## Model architecture
 
 **StellarisNet** is a two-branch 1D CNN with **9,710,305 parameters**, following Shallue &
