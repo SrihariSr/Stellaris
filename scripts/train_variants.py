@@ -16,6 +16,7 @@ from sklearn.metrics import (
     average_precision_score,
     roc_auc_score,
 )
+from scipy.special import expit
 from tqdm import tqdm
 
 from stellaris.dataset import StellarisDataset, make_splits, DEFAULT_DATASET_PATH
@@ -53,7 +54,9 @@ def group_variants(group: str) -> dict[str, dict]:
     """Variant name -> architecture and optimiser settings, without seed or epochs."""
     base = {"use_global": True, "use_local": True, "batch_norm": False, "pool": "flatten",
             "scalars": [], "lr": LEARNING_RATE, "weight_decay": WEIGHT_DECAY, "batch_size": BATCH_SIZE}
-    if group in ("ablation", "ablation-long"):
+    if group in ("ablation", "ablation-long", "bn-ablation"):
+        if group == "bn-ablation":
+            base = dict(base, batch_norm=True)
         return {
             "both": dict(base),
             "global-only": dict(base, use_local=False),
@@ -72,6 +75,7 @@ def group_variants(group: str) -> dict[str, dict]:
 GROUP_DEFAULTS = {
     "ablation": {"epochs": 40, "seeds": list(range(10)), "h5": DEFAULT_DATASET_PATH},
     "ablation-long": {"epochs": 100, "seeds": list(range(10)), "h5": DEFAULT_DATASET_PATH},
+    "bn-ablation": {"epochs": 100, "seeds": list(range(10)), "h5": DEFAULT_DATASET_PATH},
     "global-tuning": {"epochs": 100, "seeds": list(range(3)), "h5": DEFAULT_DATASET_PATH},
     "scalars": {"epochs": 40, "seeds": list(range(10)), "h5": V2_PATH},
 }
@@ -131,7 +135,7 @@ def evaluate(model: nn.Module, loader: DataLoader, device: str, max_batches: int
 
     logits = np.concatenate(all_logits)
     labels = np.concatenate(all_labels)
-    probs = 1.0 / (1.0 + np.exp(-logits))
+    probs = expit(logits)
 
     out = {'logit_std': float(np.std(logits))}
     if len(np.unique(labels)) < 2:

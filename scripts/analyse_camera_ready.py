@@ -303,7 +303,7 @@ def cmd_training(args) -> None:
     write_table(runs[runs.collapsed].drop(columns="history"), args.out_dir, "training_collapsed.csv")
 
     for group, frame in runs.groupby("group"):
-        reference = {"scalars": "A", "ablation": "both", "ablation-long": "both"}.get(group)
+        reference = {"scalars": "A", "ablation": "both", "ablation-long": "both", "bn-ablation": "both"}.get(group)
         ref = frame[frame.variant == reference] if reference else frame.iloc[:0]
         rows = []
         for variant, sub in frame.groupby("variant", sort=False):
@@ -321,6 +321,10 @@ def cmd_training(args) -> None:
         for r in rows:
             print(f"  {r['variant']:<22} n={r['n_seeds']:<3} PR-AUC {r['test_pr_auc_mean']:.4f} +/- {r['test_pr_auc_sd']:.4f}  "
                   f"ROC {r['test_roc_auc_mean']:.4f} +/- {r['test_roc_auc_sd']:.4f}  collapsed {r['n_collapsed']}")
+            if reference and r["variant"] != reference:
+                print(f"  {'':<22} Welch p, {reference} vs {r['variant']}: " + ", ".join(
+                    f"{m} {r.get(f'welch_p_{m}_vs_{reference}', float('nan')):.3g}"
+                    for m in ("pr_auc", "roc_auc", "recall_at_95")))
 
         if group == "global-tuning":
             grid = (table.assign(lr=[frame[frame.variant == v].lr.iloc[0] for v in table.variant],
@@ -331,7 +335,7 @@ def cmd_training(args) -> None:
                     .sort_values(["lr", "batch_norm", "pool"]))
             write_table(grid, args.out_dir, "training_global_tuning_grid.csv")
 
-        if group in ("ablation", "ablation-long"):
+        if group in ("ablation", "ablation-long", "bn-ablation"):
             fig, axes = plt.subplots(1, 2, figsize=(9, 3.4))
             for colour, (variant, sub) in zip(SERIES, frame.groupby("variant", sort=False)):
                 epochs = max(len(h) for h in sub.history)

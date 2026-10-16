@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from scipy.special import expit
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
@@ -154,7 +155,7 @@ def check_test_split() -> None:
         for batch in loader:
             logits.append(model(batch["global_view"], batch["local_view"]).numpy())
             labels.append(batch["label"].numpy())
-    probs = 1 / (1 + np.exp(-np.concatenate(logits)))
+    probs = expit(np.concatenate(logits))
     labels = np.concatenate(labels)
     ref = np.load(PREDICTIONS)
     max_diff = float(np.max(np.abs(probs - ref["probs"])))
