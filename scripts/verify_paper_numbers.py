@@ -424,6 +424,92 @@ def main() -> None:
                      if float((r1.cnn_probability < t).mean()) >= vetting_fr)
     check("threshold where classifier FN first reaches vetting FR", crossover, 0.345, tol=1e-9)
 
+    print("\n---- CAMERA-READY: TRAINING AND KNOCKOUT ----")
+    trained = pd.DataFrame([
+        {"group": run["spec"]["group"], "variant": run["spec"]["variant"], "seed": int(run["spec"]["seed"]),
+         "pr_auc": float(run["test"]["pr_auc"]), "best_epoch": int(run["best_epoch"]),
+         "test_logit_std": float(run["test_logit_std"])}
+        for run in (json.loads(p.read_text()) for p in sorted(Path("results/camera_ready/training/runs").glob("*/*.json")))
+    ])
+    knockout = pd.read_csv("results/camera_ready/analysis/branch_knockout.csv")
+
+    def runs_of(group: str, variant: str) -> pd.DataFrame:
+        return trained[(trained.group == group) & (trained.variant == variant)].sort_values("seed")
+
+    def welch(a: pd.Series, b: pd.Series) -> tuple[float, float, float, float]:
+        """Mean difference a - b with its Welch 95% CI and two-sided p-value."""
+        var_a, var_b = a.var(ddof=1) / len(a), b.var(ddof=1) / len(b)
+        diff, err = a.mean() - b.mean(), np.sqrt(var_a + var_b)
+        dof = (var_a + var_b) ** 2 / (var_a ** 2 / (len(a) - 1) + var_b ** 2 / (len(b) - 1))
+        half = stats.t.ppf(0.975, dof) * err
+        return float(diff), float(diff - half), float(diff + half), float(2 * stats.t.sf(abs(diff / err), dof))
+
+    # A test-logit spread this small means one constant score for every test example.
+    check("ablation global-only seeds with test logit s.d. < 1e-6",
+          int((runs_of("ablation", "global-only").test_logit_std < 1e-6).sum()), 10)
+
+    long_both = runs_of("ablation-long", "both").pr_auc
+    long_local = runs_of("ablation-long", "local-only").pr_auc
+    check("ablation-long both PR-AUC mean", round(float(long_both.mean()), 4), 0.9448)
+    check("ablation-long both PR-AUC s.d.", round(float(long_both.std(ddof=1)), 4), 0.0061)
+    check("ablation-long local-only PR-AUC mean", round(float(long_local.mean()), 4), 0.9442)
+    check("ablation-long local-only PR-AUC s.d.", round(float(long_local.std(ddof=1)), 4), 0.0031)
+    diff, lower, upper, p_long = welch(long_both, long_local)
+    check("ablation-long both minus local-only", round(diff, 4), 0.0007)
+    check("  95% CI lower bound", round(lower, 4), -0.0039)
+    check("  95% CI upper bound", round(upper, 4), 0.0053)
+    check("  Welch p-value", round(p_long, 2), 0.75)
+
+    tuning = trained[trained.group == "global-tuning"].groupby("variant").pr_auc.mean()
+    with_bn = tuning[tuning.index.str.contains("_bn1_")]
+    without_bn = tuning[tuning.index.str.contains("_bn0_")]
+    check("global-tuning bn1 configs with mean PR-AUC >= 0.90 (of 6)", int((with_bn >= 0.90).sum()), 6)
+    check("global-tuning bn0 configs with mean PR-AUC <= 0.50 (of 6)", int((without_bn <= 0.50).sum()), 6)
+
+    for variant, (want_mean, want_sd) in (("both", (0.9561, 0.0039)), ("local-only", (0.9381, 0.0040)),
+                                          ("global-only", (0.9281, 0.0073))):
+        pr = runs_of("bn-ablation", variant).pr_auc
+        check(f"bn-ablation {variant} PR-AUC mean", round(float(pr.mean()), 4), want_mean)
+        check(f"bn-ablation {variant} PR-AUC s.d.", round(float(pr.std(ddof=1)), 4), want_sd)
+    diff, lower, upper, p_bn = welch(runs_of("bn-ablation", "both").pr_auc, runs_of("bn-ablation", "local-only").pr_auc)
+    check("bn-ablation both minus local-only", round(diff, 4), 0.0180)
+    check("  95% CI lower bound", round(lower, 4), 0.0143)
+    check("  95% CI upper bound", round(upper, 4), 0.0217)
+    check("  Welch p < 1e-7", bool(p_bn < 1e-7), True)
+    # Same spec and seeds as global-tuning lr1e-4_bn1_flatten, so the runs must coincide exactly.
+    bn_global = runs_of("bn-ablation", "global-only").head(3)
+    tuned = runs_of("global-tuning", "lr1e-4_bn1_flatten").head(3)
+    check("bn-ablation global-only seeds 0-2 equal global-tuning",
+          bool(list(bn_global.seed) == list(tuned.seed) == [0, 1, 2]
+               and np.array_equal(bn_global.pr_auc.to_numpy(), tuned.pr_auc.to_numpy())
+               and np.array_equal(bn_global.best_epoch.to_numpy(), tuned.best_epoch.to_numpy())), True)
+
+    global_conditions = knockout.condition.isin(["global_zero", "global_shuffle"])
+    released_ko = knockout[(knockout.group == "released") & global_conditions]
+    check("released: global knockout max |dlogit| < 1e-5",
+          bool(len(released_ko) == 2 and (released_ko.max_abs_dlogit < 1e-5).all()), True)
+    ablation_ko = knockout[(knockout.group == "ablation") & (knockout.variant == "both")]
+    dead_global = ablation_ko[global_conditions].groupby("seed").max_abs_dlogit.max() < 1e-5
+    check("ablation both: seeds with global knockout max |dlogit| < 1e-5", int(dead_global.sum()), 9)
+    check("  the exception", [int(s) for s in dead_global.index[~dead_global]], [2])
+    seed2_shuffle = ablation_ko[(ablation_ko.seed == 2) & (ablation_ko.condition == "global_shuffle")]
+    check("  seed 2 global_shuffle PR-AUC drop", round(float(seed2_shuffle.pr_auc_drop.iloc[0]), 4), 0.0685)
+    # The knockout picks the seeds; the PR-AUCs come from the training runs, as for local-only.
+    nine = runs_of("ablation", "both")
+    nine = nine[nine.seed.isin([int(s) for s in dead_global.index[dead_global]])].pr_auc
+    check("nine-seed ablation both PR-AUC mean", round(float(nine.mean()), 4), 0.9421)
+    check("nine-seed ablation both PR-AUC s.d.", round(float(nine.std(ddof=1)), 4), 0.0026)
+    diff, lower, upper, p_nine = welch(nine, runs_of("ablation", "local-only").pr_auc)
+    check("nine-seed both minus local-only", round(diff, 4), -0.0013)
+    check("  95% CI lower bound", round(lower, 4), -0.0041)
+    check("  95% CI upper bound", round(upper, 4), 0.0015)
+    check("  Welch p-value", round(p_nine, 2), 0.35)
+    bn_ko = knockout[(knockout.group == "bn-ablation") & (knockout.variant == "both")]
+    for condition, (want_mean, want_sd) in (("global_shuffle", (0.388, 0.033)), ("local_shuffle", (0.086, 0.024))):
+        drop = bn_ko[bn_ko.condition == condition].pr_auc_drop
+        check(f"bn-ablation both {condition} PR-AUC drop mean", round(float(drop.mean()), 3), want_mean)
+        check(f"bn-ablation both {condition} PR-AUC drop s.d.", round(float(drop.std(ddof=1)), 3), want_sd)
+
     print("\n" + "-" * 60)
     print(f"{_passed} passed, {len(_failed)} failed")
     if _failed:
