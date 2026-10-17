@@ -1,5 +1,4 @@
 """Verify stellaris.views on HAT-P-7b."""
-import numpy as np
 import matplotlib.pyplot as plt
 
 from stellaris.fetch import load_kepler_lightcurve
@@ -9,9 +8,9 @@ from stellaris.views import make_global_view, make_local_view
 
 # HAT-P-7b parameters
 kepid = 10666592
-period = 2.2047358        # days
-epoch_bkjd = 121.3585     # BKJD
-duration_hours = 4.04     # published transit duration
+period = 2.2047358 # days
+epoch_bkjd = 121.3585 # BKJD
+duration_hours = 4.04 # published transit duration
 duration_days = duration_hours / 24.0
 
 
@@ -25,10 +24,10 @@ flux = clean.flux.value
 global_view = make_global_view(time, flux, period, epoch_bkjd)
 local_view = make_local_view(time, flux, period, epoch_bkjd, duration_days)
 
-print(f"Global view shape: {global_view.shape}  (expect (2001,))")
-print(f"Local view shape:  {local_view.shape}   (expect (201,))")
+print(f"Global view shape: {global_view.shape} (expect (2001,))")
+print(f"Local view shape: {local_view.shape} (expect (201,))")
 print(f"Global view: min={global_view.min():.3f}, max={global_view.max():.3f}")
-print(f"Local view:  min={local_view.min():.3f},  max={local_view.max():.3f}")
+print(f"Local view: min={local_view.min():.3f},  max={local_view.max():.3f}")
 print(f"Both minima should be ~-1.0")
 
 # Plot
