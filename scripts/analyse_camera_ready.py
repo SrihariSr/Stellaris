@@ -155,6 +155,45 @@ def welch_p(a, b) -> float:
     return float(stats.ttest_ind(a, b, equal_var=False).pvalue)
 
 
+def welch_ci(a, b, level: float = 0.95) -> dict:
+    """Difference of means a - b with its Welch-Satterthwaite confidence interval and two-sided p."""
+    a = np.asarray(a, dtype=float)
+    b = np.asarray(b, dtype=float)
+    a, b = a[np.isfinite(a)], b[np.isfinite(b)]
+    out = {"n_a": len(a), "n_b": len(b), "mean_a": float(a.mean()) if len(a) else float("nan"),
+           "mean_b": float(b.mean()) if len(b) else float("nan")}
+    out["difference"] = out["mean_a"] - out["mean_b"]
+    if len(a) < 2 or len(b) < 2:
+        return {**out, "ci_low": float("nan"), "ci_high": float("nan"), "df": float("nan"), "p": float("nan")}
+    var_a, var_b = a.var(ddof=1) / len(a), b.var(ddof=1) / len(b)
+    err = np.sqrt(var_a + var_b)
+    if err == 0:
+        return {**out, "ci_low": out["difference"], "ci_high": out["difference"], "df": float("nan"), "p": float("nan")}
+    df = (var_a + var_b) ** 2 / (var_a ** 2 / (len(a) - 1) + var_b ** 2 / (len(b) - 1))
+    half = stats.t.ppf(0.5 + level / 2, df) * err
+    p = 2 * stats.t.sf(abs(out["difference"]) / err, df)
+    return {**out, "ci_low": out["difference"] - half, "ci_high": out["difference"] + half,
+            "df": float(df), "p": float(p)}
+
+
+def sequential_table(frame: pd.DataFrame, value_cols: list[str], pairs: list[tuple]) -> pd.DataFrame:
+    """Welch comparisons for (label, later rows, earlier rows) pairs on each value column."""
+    rows = []
+    for label, later, earlier in pairs:
+        for col in value_cols:
+            r = welch_ci(frame.loc[later, col], frame.loc[earlier, col])
+            rows.append({"comparison": label, "metric": col, "mean_later": r["mean_a"], "mean_earlier": r["mean_b"],
+                         "difference": r["difference"], "ci95_low": r["ci_low"], "ci95_high": r["ci_high"],
+                         "df": r["df"], "p": r["p"], "n_later": r["n_a"], "n_earlier": r["n_b"]})
+    return pd.DataFrame(rows)
+
+
+def print_sequential(table: pd.DataFrame) -> None:
+    for r in table.itertuples():
+        print(f"  {r.comparison:<22} {r.metric:<26} diff {r.difference:+.4f}  "
+              f"95% CI [{r.ci95_low:+.4f}, {r.ci95_high:+.4f}]  p {r.p:.3g}")
+
+
 def mcnemar_exact(b: int, c: int) -> float:
     return float(stats.binomtest(min(b, c), b + c, 0.5).pvalue) if b + c > 0 else 1.0
 
@@ -352,6 +391,19 @@ def cmd_training(args) -> None:
             style(axes[1], "epoch", "training loss")
             axes[0].legend(frameon=False, fontsize=8, labelcolor=INK)
             print(f"  Figure: {save(fig, args.fig_dir, f'learning_curves_{group}.png')}")
+
+    scalars = runs[runs.group == "scalars"]
+    if not scalars.empty:
+        print("\n[scalars] test recall at 95% precision, mean +/- s.d. over seeds:")
+        for variant in ("A", "B", "C", "D"):
+            m, s = mean_sd(scalars[scalars.variant == variant].test_recall_at_95)
+            print(f"  {variant}  {m:.4f} +/- {s:.4f}")
+        pairs = [(f"{b} vs {a}", scalars.index[scalars.variant == b], scalars.index[scalars.variant == a])
+                 for b, a in (("B", "A"), ("C", "B"), ("D", "C"))]
+        table = sequential_table(scalars, ["test_pr_auc", "test_roc_auc", "test_recall_at_95"], pairs)
+        write_table(table, args.out_dir, "scalars_sequential_kepler.csv")
+        print("[scalars] sequential Welch comparisons (later minus earlier):")
+        print_sequential(table)
     print(f"\nTables: {args.out_dir}")
 
 
@@ -455,9 +507,21 @@ def cmd_rescore(args) -> None:
     agg = agg.reset_index()
     write_table(agg, args.out_dir, f"rescore_by_variant_{tag}.csv")
     focus = agg[(agg.group == "scalars") | agg.variant.isin(["released", "both", "local-only"])]
-    print(focus[["group", "variant", "n_seeds", "t_star_mean", "r1_pass_rate_mean"]
-                + [c for c in ("r3_high_band_mean", "r2_high_among_depth_cap_mean", "fn_rate_catalogue_mean")
-                   if c in focus]].to_string(index=False))
+    means = ["t_star_mean", "r1_pass_rate_mean"] + [c for c in ("r3_high_band_mean", "r2_high_among_depth_cap_mean",
+                                                                 "fn_rate_catalogue_mean") if c in focus]
+    print(focus[["group", "variant", "n_seeds"] + [c for m in means for c in (m, m[:-len("_mean")] + "_sd")]]
+          .to_string(index=False))
+
+    scalars = per_ckpt[per_ckpt.group == "scalars"]
+    values = [c for c in ("r3_high_band", "r2_high_among_depth_cap") if c in per_ckpt]
+    if not scalars.empty and values:
+        idx = lambda g, v: per_ckpt.index[(per_ckpt.group == g) & (per_ckpt.variant == v)]
+        pairs = [(f"{b} vs {a}", idx("scalars", b), idx("scalars", a)) for b, a in (("B", "A"), ("C", "B"), ("D", "C"))]
+        pairs.append(("A vs ablation/both", idx("scalars", "A"), idx("ablation", "both")))
+        table = sequential_table(per_ckpt, values, pairs)
+        write_table(table, args.out_dir, "scalars_sequential_tess.csv")
+        print("[scalars] sequential Welch comparisons at matched thresholds (later minus earlier):")
+        print_sequential(table)
     print(f"Tables: {args.out_dir}")
 
 
@@ -633,8 +697,10 @@ def main() -> None:
 
     def add(name: str, func, help_text: str):
         p = sub.add_parser(name, help=help_text)
-        p.add_argument("--out-dir", type=Path, default=DEFAULT_OUT)
-        p.add_argument("--fig-dir", type=Path, default=DEFAULT_FIG)
+        p.add_argument("--out-dir", type=Path, default=None,
+                       help=f"Directory for every file the subcommand writes, tables and figures "
+                            f"(default: tables to {DEFAULT_OUT}, figures to {DEFAULT_FIG}).")
+        p.add_argument("--fig-dir", type=Path, default=None, help="Override the figure directory only.")
         p.add_argument("--toi-table", type=Path, default=PROJECT_ROOT / "data" / "catalogs" / "tess_toi.csv")
         p.set_defaults(func=func)
         return p
@@ -662,6 +728,10 @@ def main() -> None:
     p.add_argument("--koi-csv", type=Path, default=PROJECT_ROOT / "data" / "catalogs" / "kepler_koi_train.csv")
 
     args = parser.parse_args()
+    if args.fig_dir is None:
+        args.fig_dir = DEFAULT_FIG if args.out_dir is None else args.out_dir
+    if args.out_dir is None:
+        args.out_dir = DEFAULT_OUT
     args.out_dir.mkdir(parents=True, exist_ok=True)
     args.func(args)
 
