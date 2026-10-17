@@ -14,6 +14,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from stellaris.fetch import KEPLER_DATA_DIR, load_kepler_lightcurve
+from stellaris.kepler_local import first_local_dir
 from stellaris.kepler_v1 import KOI_CSV, V1_FAILURES, V1_PATH, v1_csv_rows
 from stellaris.preprocess import preprocess
 from stellaris.views import make_global_view, make_local_view
@@ -57,6 +58,7 @@ def process_task(task: dict) -> dict:
         "global_scale": np.full(n, np.nan),
         "local_scale": np.full(n, np.nan),
         "message": np.array([""] * n, dtype=object),
+        "source_dir": np.array([""] * n, dtype=object),
     }
     cleaned: dict[int, tuple] = {}
     for i, r in enumerate(rows):
@@ -64,14 +66,21 @@ def process_task(task: dict) -> dict:
         try:
             validate_row(r["period"], r["epoch"], r["duration_hours"])
             if kepid not in cleaned:
+                root = KEPLER_DATA_DIR
                 try:
-                    if task["skip_dataless"] and cloud_only(kepid):
+                    if task["kepler_dirs"] is not None:
+                        # Search order: the first directory with a fully local copy; placeholders are never opened.
+                        root = first_local_dir(kepid, [Path(d) for d in task["kepler_dirs"]])
+                        if root is None:
+                            raise RuntimeError("no fully local copy in --kepler-dirs")
+                    elif task["skip_dataless"] and cloud_only(kepid):
                         raise RuntimeError("dataless: cloud-only FITS skipped (--skip-dataless)")
-                    clean = preprocess(load_kepler_lightcurve(kepid))
-                    cleaned[kepid] = (clean.time.value, clean.flux.value, None)
+                    clean = preprocess(load_kepler_lightcurve(kepid, root=root))
+                    cleaned[kepid] = (clean.time.value, clean.flux.value, None, str(root))
                 except Exception as exc:
-                    cleaned[kepid] = (None, None, exc)
-            time, flux, error = cleaned[kepid]
+                    cleaned[kepid] = (None, None, exc, "" if root is None else str(root))
+            time, flux, error, source_dir = cleaned[kepid]
+            out["source_dir"][i] = source_dir
             if error is not None:
                 raise error
             duration_days = r["duration_hours"] / 24.0
@@ -86,11 +95,12 @@ def process_task(task: dict) -> dict:
             out["ok"][i] = True
         except Exception as exc:
             out["message"][i] = str(exc)[:200]
-    np.savez(task["part"], **{k: (v.astype(str) if k == "message" else v) for k, v in out.items()})
+    np.savez(task["part"], **{k: (v.astype(str) if k in ("message", "source_dir") else v) for k, v in out.items()})
     return {"part": task["part"], "n_ok": int(out["ok"].sum()), "n": n}
 
 
-def make_tasks(koi: pd.DataFrame, rows: list[int], parts_dir: Path, skip_dataless: bool) -> list[dict]:
+def make_tasks(koi: pd.DataFrame, rows: list[int], parts_dir: Path, skip_dataless: bool,
+               kepler_dirs: list[str] | None = None) -> list[dict]:
     groups: dict[int, list[int]] = {}
     for i in rows:
         groups.setdefault(int(koi.at[i, "kepid"]), []).append(i)
@@ -98,10 +108,12 @@ def make_tasks(koi: pd.DataFrame, rows: list[int], parts_dir: Path, skip_datales
     tasks = []
     for start in range(0, len(kepids), KEPIDS_PER_TASK):
         chunk_rows = [i for k in kepids[start:start + KEPIDS_PER_TASK] for i in groups[k]]
-        digest = hashlib.sha1(",".join(map(str, chunk_rows)).encode()).hexdigest()[:10]
+        key = ",".join(map(str, chunk_rows)) + "|" + "|".join(kepler_dirs or [])
+        digest = hashlib.sha1(key.encode()).hexdigest()[:10]
         tasks.append({
             "part": str(parts_dir / f"part_{start // KEPIDS_PER_TASK:05d}_{digest}.npz"),
             "skip_dataless": skip_dataless,
+            "kepler_dirs": kepler_dirs,
             "rows": [{
                 "csv_row": i,
                 "kepid": int(koi.at[i, "kepid"]),
@@ -141,6 +153,8 @@ def write_h5(out: Path, koi: pd.DataFrame, ordered: list[int], merged: dict[int,
         f.create_dataset("kepid", data=col("kepid", np.int64))
         f.create_dataset("csv_row", data=np.asarray(ordered, dtype=np.int64))
         f.create_dataset("kepoi_name", data=sel["kepoi_name"].astype(str).to_numpy(dtype=object),
+                         dtype=h5py.string_dtype())
+        f.create_dataset("kepler_dir", data=np.array([str(merged[i]["source_dir"]) for i in ordered], dtype=object),
                          dtype=h5py.string_dtype())
         f.create_dataset("global_scale", data=np.array([merged[i]["global_scale"] for i in ordered], dtype=np.float64))
         f.create_dataset("local_scale", data=np.array([merged[i]["local_scale"] for i in ordered], dtype=np.float64))
@@ -189,6 +203,10 @@ def main() -> None:
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--skip-dataless", action="store_true",
                         help="Fail kepids with cloud-only (OneDrive placeholder) FITS instead of downloading them.")
+    parser.add_argument("--kepler-dirs", type=Path, nargs="+", default=None,
+                        help="Search order of Kepler data directories. Each kepid is read from the first one "
+                             "holding a fully local copy; cloud-only placeholders are never opened. "
+                             "Default: data/raw/kepler only, as before.")
     parser.add_argument("--keep-parts", action="store_true", help="Keep the per-chunk resume files.")
     args = parser.parse_args()
 
@@ -231,7 +249,10 @@ def main() -> None:
 
     parts_dir = out.with_name(out.name + ".parts")
     parts_dir.mkdir(parents=True, exist_ok=True)
-    tasks = make_tasks(koi, rows, parts_dir, args.skip_dataless)
+    kepler_dirs = None if args.kepler_dirs is None else [str(d.expanduser().resolve()) for d in args.kepler_dirs]
+    if kepler_dirs is not None:
+        print("Kepler directories, in search order: " + "  ".join(kepler_dirs))
+    tasks = make_tasks(koi, rows, parts_dir, args.skip_dataless, kepler_dirs)
     todo = [t for t in tasks if not Path(t["part"]).exists()]
     print(f"Rows {len(rows)} in {len(tasks)} chunks; {len(tasks) - len(todo)} chunks already done")
 
@@ -293,6 +314,7 @@ def main() -> None:
         "n_csv_rows_total": len(koi),
         "n_csv_rows_processed": len(rows),
         "skip_dataless": bool(args.skip_dataless),
+        "kepler_dirs": "|".join(kepler_dirs) if kepler_dirs is not None else str(KEPLER_DATA_DIR),
         "source_csv": str(args.koi_csv),
     })
 
@@ -305,6 +327,8 @@ def main() -> None:
             print(f"Left {parts_dir} in place: it still holds parts from another row selection.")
 
     print(f"Written {len(ok_rows)}/{len(rows)} rows to {out}")
+    sources = pd.Series([str(merged[i]["source_dir"]) for i in ok_rows]).value_counts()
+    print("Rows by source directory: " + "; ".join(f"{d}: {n}" for d, n in sources.items()))
     print(f"Failures: {len(failed)}   extra rows listed: {len(extras)} ({extra_path.name})")
 
 

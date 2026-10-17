@@ -9,14 +9,15 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 KEPLER_DATA_DIR = PROJECT_ROOT / "data" / "raw" / "kepler"
 
 
-def get_kepler_data_dir() -> Path:
-    """Return the absolute path to the local Kepler data directory."""
-    if not KEPLER_DATA_DIR.exists():
+def get_kepler_data_dir(root: Path | None = None) -> Path:
+    """Return the absolute path to the local Kepler data directory, or to root when given."""
+    data_dir = KEPLER_DATA_DIR if root is None else Path(root)
+    if not data_dir.exists():
         raise FileNotFoundError(
-            f"Kepler data directory not found: {KEPLER_DATA_DIR}\n"
+            f"Kepler data directory not found: {data_dir}\n"
             "Run scripts/fetch_kepler_lightcurves.py first."
         )
-    return KEPLER_DATA_DIR
+    return data_dir
 
 
 def list_available_kepids() -> list[int]:
@@ -35,11 +36,11 @@ def list_available_kepids() -> list[int]:
     return sorted(kepids)
 
 
-def load_kepler_lightcurve(kepid: int) -> lk.LightCurveCollection:
+def load_kepler_lightcurve(kepid: int, root: Path | None = None) -> lk.LightCurveCollection:
     """
-    Load all available quarters for a Kepler target from local cache.
+    Load all available quarters for a Kepler target from local cache (root overrides data/raw/kepler).
     """
-    target_dir = get_kepler_data_dir() / f"{kepid:09d}"
+    target_dir = get_kepler_data_dir(root) / f"{kepid:09d}"
 
     if not target_dir.exists():
         raise FileNotFoundError(

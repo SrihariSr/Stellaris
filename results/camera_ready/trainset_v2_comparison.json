@@ -1,0 +1,21 @@
+{
+  "v1_rows": 6726,
+  "v2_rows": 6726,
+  "row_counts_equal": true,
+  "positional_rows_compared": 6726,
+  "positional_kepid_equal_rows": 6726,
+  "positional_label_equal_rows": 6726,
+  "positional_global_view_equal_rows": 6723,
+  "positional_local_view_equal_rows": 6724,
+  "positional_max_abs_global_view_diff": 1.29929518699646,
+  "positional_max_abs_local_view_diff": 1.535079836845398,
+  "v2_rows_absent_from_v1": 0,
+  "csv_rows_absent_from_v1": [],
+  "v2_rows_in_v1_order": true,
+  "aligned_kepid_equal_rows": 6726,
+  "aligned_label_equal_rows": 6726,
+  "aligned_global_view_equal_rows": 6723,
+  "aligned_local_view_equal_rows": 6724,
+  "verdict": "DIFFERENT",
+  "identical": false
+}
