@@ -41,8 +41,8 @@ def fetch_tess_lightcurve(
         raise FileNotFoundError(f"No {author} {exptime}s light curves for TIC {tic_id} in sectors {sectors}" if sectors else "")
         
     # Download to cache directory
-    lcc = search.download_all(download_dir=str(target_dir))
-    return lcc
+    search.download_all(download_dir=str(target_dir))
+    return lk.LightCurveCollection([lk.read(str(f)) for f in sorted(target_dir.rglob("*lc.fits"))])
 
 def list_cached_tics() -> list[int]:
     """Return TIC IDs with at least one cached light curve on disk."""
